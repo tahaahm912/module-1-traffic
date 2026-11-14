@@ -1,0 +1,909 @@
+
+/* ==========================================
+   TRAFFIC FLOW OPTIMIZER
+   NEW INTERSECTION DESIGN
+========================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --background: #101a18;
+    --panel: #1c2928;
+    --panel-border: #30413e;
+    --text: #edf4f1;
+    --muted: #a3b4ae;
+
+    --road: #292f38;
+    --road-edge: #68717c;
+    --road-line: rgba(255,255,255,0.65);
+
+    --red: #ef4444;
+    --yellow: #facc15;
+    --green: #22c55e;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--background);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.topbar {
+    background: #172321;
+    border-bottom: 1px solid var(--panel-border);
+    padding: 20px 4%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.topbar h1 {
+    font-size: 25px;
+    margin-bottom: 5px;
+}
+
+.topbar p {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+}
+
+#connectionDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--yellow);
+}
+
+/* ==========================================
+   DASHBOARD
+========================================== */
+
+.dashboard {
+    width: 95%;
+    max-width: 1550px;
+    margin: 25px auto;
+    display: grid;
+    grid-template-columns: 270px minmax(0, 1fr);
+    gap: 18px;
+}
+
+.panel,
+.stat-card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 5px 18px rgba(0,0,0,0.18);
+}
+
+.panel h2 {
+    font-size: 18px;
+    margin-bottom: 17px;
+}
+
+/* ==========================================
+   CONTROLS
+========================================== */
+
+.controls-panel {
+    grid-column: 1;
+    grid-row: span 2;
+}
+
+.control-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+}
+
+.btn {
+    border: none;
+    border-radius: 7px;
+    padding: 12px;
+    color: white;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+}
+
+.btn-start {
+    background: #16864f;
+}
+
+.btn-pause {
+    background: #b88718;
+}
+
+.btn-reset {
+    background: #c63e3e;
+    grid-column: span 2;
+}
+
+.control-options {
+    margin: 22px 0;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.control-options input {
+    margin-right: 7px;
+    accent-color: var(--green);
+}
+
+.manual-vehicle {
+    border-top: 1px solid var(--panel-border);
+    padding-top: 20px;
+}
+
+.manual-vehicle h3 {
+    font-size: 16px;
+    margin-bottom: 14px;
+}
+
+.manual-vehicle label {
+    display: block;
+    font-size: 13px;
+    margin: 13px 0 6px;
+    color: var(--muted);
+}
+
+.manual-vehicle select {
+    width: 100%;
+    padding: 11px;
+    background: #253431;
+    color: white;
+    border: 1px solid #43534f;
+    border-radius: 6px;
+}
+
+.btn-add {
+    width: 100%;
+    background: #176b96;
+    margin-top: 16px;
+}
+
+/* ==========================================
+   STATISTICS
+========================================== */
+
+.stats-grid {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.stat-card {
+    padding: 17px;
+}
+
+.stat-card span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+
+.stat-card strong {
+    font-size: 27px;
+}
+
+/* ==========================================
+   INTERSECTION PANEL
+========================================== */
+
+.intersection-panel {
+    grid-column: 2;
+    min-width: 0;
+}
+
+.section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.section-heading h2 {
+    margin-bottom: 5px;
+}
+
+.section-heading p {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.status-badge {
+    background: #30413c;
+    color: #c9e8d9;
+    border-radius: 20px;
+    padding: 8px 13px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* ==========================================
+   INTERSECTION BASE
+========================================== */
+
+.intersection {
+    position: relative;
+    width: 100%;
+    max-width: 1050px;
+    height: 680px;
+    margin: auto;
+    overflow: hidden;
+
+    background: #14221b;
+    border: 1px solid #33463a;
+    border-radius: 9px;
+
+    isolation: isolate;
+}
+
+/* Horizontal asphalt road */
+
+.intersection::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+
+    width: 100%;
+    height: 225px;
+
+    background: var(--road);
+    border-top: 3px solid var(--road-edge);
+    border-bottom: 3px solid var(--road-edge);
+}
+
+/* Vertical asphalt road */
+
+.intersection::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+
+    width: 225px;
+    height: 100%;
+
+    background: var(--road);
+    border-left: 3px solid var(--road-edge);
+    border-right: 3px solid var(--road-edge);
+}
+
+/* ==========================================
+   ROAD CONTAINERS
+========================================== */
+
+.road {
+    position: absolute;
+    z-index: 2;
+}
+
+/* North and South */
+
+.road-north,
+.road-south {
+    width: 225px;
+    height: 50%;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.road-north {
+    top: 0;
+}
+
+.road-south {
+    bottom: 0;
+}
+
+/* East and West */
+
+.road-east,
+.road-west {
+    width: 50%;
+    height: 225px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.road-east {
+    right: 0;
+}
+
+.road-west {
+    left: 0;
+}
+
+/* ==========================================
+   ROAD LABELS
+========================================== */
+
+.road-label {
+    position: absolute;
+    z-index: 15;
+
+    padding: 7px 12px;
+    background: #111a23;
+    color: white;
+
+    border: 1px solid #48515b;
+    border-radius: 5px;
+
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.7px;
+}
+
+.road-north .road-label {
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.road-south .road-label {
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.road-east .road-label {
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.road-west .road-label {
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* ==========================================
+   LANES
+========================================== */
+
+.lane {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+
+    border-color: rgba(255,255,255,0.55);
+    border-style: dashed;
+}
+
+/* Vertical road lanes */
+
+.road-north .lane,
+.road-south .lane {
+    width: 50%;
+    height: 100%;
+    top: 0;
+}
+
+/* North: incoming left, outgoing right */
+
+.road-north .lane.incoming {
+    left: 0;
+    border-right-width: 1px;
+}
+
+.road-north .lane.outgoing {
+    right: 0;
+    border-left-width: 1px;
+}
+
+/* South: outgoing left, incoming right */
+
+.road-south .lane.outgoing {
+    left: 0;
+    border-right-width: 1px;
+}
+
+.road-south .lane.incoming {
+    right: 0;
+    border-left-width: 1px;
+}
+
+/* Horizontal road lanes */
+
+.road-east .lane,
+.road-west .lane {
+    width: 100%;
+    height: 50%;
+    left: 0;
+}
+
+/* East: incoming top, outgoing bottom */
+
+.road-east .lane.incoming {
+    top: 0;
+    border-bottom-width: 1px;
+}
+
+.road-east .lane.outgoing {
+    bottom: 0;
+    border-top-width: 1px;
+}
+
+/* West: outgoing top, incoming bottom */
+
+.road-west .lane.outgoing {
+    top: 0;
+    border-bottom-width: 1px;
+}
+
+.road-west .lane.incoming {
+    bottom: 0;
+    border-top-width: 1px;
+}
+
+/* ==========================================
+   INCOMING / OUTGOING LABELS
+========================================== */
+
+.lane-label {
+    position: absolute;
+    z-index: 5;
+
+    display: block;
+    width: auto;
+    height: auto;
+
+    padding: 5px 9px;
+    background: rgba(12,19,25,0.88);
+    color: #f4f7fa;
+
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 5px;
+
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+
+    pointer-events: none;
+}
+
+/* North labels */
+
+.road-north .lane-label {
+    top: 58px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* South labels */
+
+.road-south .lane-label {
+    bottom: 58px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* East labels */
+
+.road-east .lane-label {
+    right: 55px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* West labels */
+
+.road-west .lane-label {
+    left: 55px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* ==========================================
+   TRAFFIC SIGNALS
+========================================== */
+
+.signal {
+    position: absolute;
+    z-index: 20;
+
+    width: 35px;
+    height: 91px;
+    padding: 6px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+
+    background: #101519;
+    border: 2px solid #424b51;
+    border-radius: 9px;
+
+    box-shadow:
+        0 4px 12px rgba(0,0,0,0.65),
+        inset 0 0 5px rgba(255,255,255,0.08);
+}
+
+/* Individual lights */
+
+.signal .light {
+    display: block;
+
+    width: 19px;
+    height: 19px;
+
+    flex-shrink: 0;
+    border-radius: 50%;
+
+    background: #3b444a;
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.7);
+}
+
+/* Active red */
+
+.signal .light.red.active {
+    background: var(--red);
+    box-shadow: 0 0 12px rgba(239,68,68,0.85);
+}
+
+/* Active yellow */
+
+.signal .light.yellow.active {
+    background: var(--yellow);
+    box-shadow: 0 0 12px rgba(250,204,21,0.8);
+}
+
+/* Active green */
+
+.signal .light.green.active {
+    background: var(--green);
+    box-shadow: 0 0 12px rgba(34,197,94,0.85);
+}
+
+/* North signal */
+.road-north .signal {
+    left: calc(25% - 17.5px);
+    bottom: 90px;
+}
+
+/* South signal */
+.road-south .signal {
+    right: calc(25% - 17.5px);
+    top: 100px;
+}
+
+/* East signal */
+.road-east .signal {
+    left: 120px;
+    top: calc(25% - 45.5px);
+}
+
+/* West signal */
+.road-west .signal {
+    right: 120px;
+    top: calc(75% - 45.5px);
+}
+
+/* Signal identification tag */
+
+.signal::after {
+    position: absolute;
+    z-index: 21;
+
+    padding: 5px 7px;
+    background: #101519;
+    color: white;
+
+    border: 1px solid #58636b;
+    border-radius: 4px;
+
+    font-size: 9px;
+    font-weight: bold;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+/* North tag */
+
+.road-north .signal::after {
+    content: "NORTH";
+    left: 43px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* South tag */
+
+.road-south .signal::after {
+    content: "SOUTH";
+    right: 43px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* East tag */
+
+.road-east .signal::after {
+    content: "EAST";
+    left: 50%;
+    top: -25px;
+    transform: translateX(-50%);
+}
+
+/* West tag */
+
+.road-west .signal::after {
+    content: "WEST";
+    left: 50%;
+    bottom: -25px;
+    transform: translateX(-50%);
+}
+
+/* ==========================================
+   INTERSECTION CENTER
+========================================== */
+
+.intersection-center {
+    position: absolute;
+    z-index: 3;
+
+    width: 225px;
+    height: 225px;
+
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid rgba(255,255,255,0.15);
+
+    pointer-events: none;
+}
+
+.intersection-center span {
+    padding: 7px 10px;
+
+    color: rgba(255,255,255,0.75);
+    background: rgba(17,24,31,0.75);
+
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.8px;
+}
+
+/* ==========================================
+   VEHICLES
+========================================== */
+
+.vehicle-container {
+    position: absolute;
+    z-index: 10;
+    inset: 0;
+    pointer-events: none;
+}
+
+.vehicle {
+    position: absolute;
+
+    width: 23px;
+    height: 36px;
+
+    border-radius: 6px;
+    border: 2px solid rgba(255,255,255,0.8);
+
+    background: #3498db;
+
+    box-shadow: 0 3px 7px rgba(0,0,0,0.55);
+}
+
+/* Car windows */
+
+.vehicle::before {
+    content: "";
+    position: absolute;
+
+    left: 3px;
+    right: 3px;
+    top: 7px;
+
+    height: 17px;
+
+    background: rgba(220,240,255,0.8);
+    border-radius: 3px;
+}
+
+/* Vehicle lights */
+
+.vehicle::after {
+    content: "";
+    position: absolute;
+
+    left: 2px;
+    right: 2px;
+    top: -2px;
+
+    height: 3px;
+    background: #ef4444;
+    border-radius: 3px;
+}
+
+.vehicle.bus {
+    width: 25px;
+    height: 44px;
+    background: #e7a72c;
+}
+
+.vehicle.truck {
+    width: 27px;
+    height: 42px;
+    background: #9068ca;
+}
+
+.vehicle.bike {
+    width: 16px;
+    height: 25px;
+    border-radius: 8px;
+    background: #22b56b;
+}
+
+/* ==========================================
+   ROAD INFORMATION
+========================================== */
+
+.road-information,
+.completed-panel {
+    grid-column: 2;
+}
+
+.road-details {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 12px;
+}
+
+.road-card {
+    background: #253531;
+    border: 1px solid #40514a;
+    border-radius: 8px;
+    padding: 13px;
+
+    font-size: 12px;
+    line-height: 1.9;
+}
+
+.road-card h3 {
+    font-size: 14px;
+    margin-bottom: 7px;
+}
+
+.completed-panel {
+    margin-bottom: 20px;
+}
+
+#completedVehicles {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* ==========================================
+   FOOTER
+========================================== */
+
+footer {
+    text-align: center;
+    color: var(--muted);
+    padding: 20px;
+    font-size: 12px;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 1000px) {
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .controls-panel,
+    .stats-grid,
+    .intersection-panel,
+    .road-information,
+    .completed-panel {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+}
+
+@media (max-width: 650px) {
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .intersection {
+        height: 520px;
+    }
+
+    .intersection::before {
+        height: 170px;
+    }
+
+    .intersection::after {
+        width: 170px;
+    }
+
+    .road-north,
+    .road-south {
+        width: 170px;
+    }
+
+    .road-east,
+    .road-west {
+        height: 170px;
+    }
+
+    .intersection-center {
+        width: 170px;
+        height: 170px;
+    }
+
+    .road-details {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+
+    .lane-label {
+        font-size: 8px;
+        padding: 4px 5px;
+    }
+
+    .road-east .lane-label {
+        right: 35px;
+    }
+
+    .road-west .lane-label {
+        left: 35px;
+    }
+}

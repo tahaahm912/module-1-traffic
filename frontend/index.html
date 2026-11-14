@@ -1,0 +1,222 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Flow Optimizer</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <header class="topbar">
+        <div>
+            <h1>Traffic Flow Optimizer</h1>
+            <p>Adaptive Traffic Light Control System</p>
+        </div>
+
+        <div class="connection-status">
+            <span id="connectionDot"></span>
+            <span id="connectionText">Connecting...</span>
+        </div>
+    </header>
+
+    <main class="dashboard">
+
+        <!-- Simulation Controls -->
+        <section class="panel controls-panel">
+            <h2>Simulation Controls</h2>
+
+            <div class="control-buttons">
+                <button id="startBtn" class="btn btn-start">Start</button>
+                <button id="pauseBtn" class="btn btn-pause">Pause</button>
+                <button id="resetBtn" class="btn btn-reset">Reset</button>
+            </div>
+
+            <div class="control-options">
+                <label>
+                    <input type="checkbox" id="autoGeneration">
+                    Automatic Vehicle Generation
+                </label>
+            </div>
+
+            <div class="manual-vehicle">
+                <h3>Add Vehicle</h3>
+
+                <label for="roadSelect">Entry Road</label>
+                <select id="roadSelect">
+                    <option value="North">North</option>
+                    <option value="South">South</option>
+                    <option value="East">East</option>
+                    <option value="West">West</option>
+                </select>
+
+                <label for="vehicleType">Vehicle Type</label>
+                <select id="vehicleType">
+                    <option value="Car">Car</option>
+                    <option value="Bus">Bus</option>
+                    <option value="Truck">Truck</option>
+                    <option value="Bike">Bike</option>
+                </select>
+
+                <button id="addVehicleBtn" class="btn btn-add">
+                    Add Vehicle
+                </button>
+            </div>
+        </section>
+
+        <!-- Statistics -->
+        <section class="stats-grid">
+
+            <div class="stat-card">
+                <span>Simulation Ticks</span>
+                <strong id="tickCount">0</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>Total Generated</span>
+                <strong id="totalGenerated">0</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>Total Completed</span>
+                <strong id="totalCompleted">0</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>Vehicles in Queues</span>
+                <strong id="vehiclesInQueue">0</strong>
+            </div>
+
+        </section>
+
+        <!-- Intersection -->
+        <section class="panel intersection-panel">
+            <div class="section-heading">
+                <div>
+                    <h2>Live Traffic Intersection</h2>
+                    <p>Four-sided bidirectional road system</p>
+                </div>
+                <span id="simulationStatus" class="status-badge">Stopped</span>
+            </div>
+
+            <div class="intersection">
+
+                <!-- North Road -->
+                <div class="road road-north" id="road-North">
+                    <div class="road-label">NORTH</div>
+
+                    <div class="signal" id="signal-North">
+                        <span class="light red active"></span>
+                        <span class="light yellow"></span>
+                        <span class="light green"></span>
+                    </div>
+
+                    <div class="lane incoming" id="North-incoming">
+                        <span class="lane-label">IN</span>
+                        <div class="vehicle-container"></div>
+                    </div>
+
+                    <div class="lane outgoing" id="North-outgoing">
+                        <span class="lane-label">OUT</span>
+                        <div class="vehicle-container"></div>
+                    </div>
+                </div>
+
+                <!-- South Road -->
+                <div class="road road-south" id="road-South">
+                    <div class="road-label">SOUTH</div>
+
+                    <div class="signal" id="signal-South">
+                        <span class="light red active"></span>
+                        <span class="light yellow"></span>
+                        <span class="light green"></span>
+                    </div>
+
+                    <div class="lane incoming" id="South-incoming">
+                        <span class="lane-label">IN</span>
+                        <div class="vehicle-container"></div>
+                    </div>
+
+                    <div class="lane outgoing" id="South-outgoing">
+                        <span class="lane-label">OUT</span>
+                        <div class="vehicle-container"></div>
+                    </div>
+                </div>
+
+                <!-- East Road -->
+                <div class="road road-east" id="road-East">
+                    <div class="road-label">EAST</div>
+
+                    <div class="signal" id="signal-East">
+                        <span class="light red active"></span>
+                        <span class="light yellow"></span>
+                        <span class="light green"></span>
+                    </div>
+
+                    <div class="lane incoming" id="East-incoming">
+                        <span class="lane-label">IN</span>
+                        <div class="vehicle-container"></div>
+                    </div>
+
+                    <div class="lane outgoing" id="East-outgoing">
+                        <span class="lane-label">OUT</span>
+                        <div class="vehicle-container"></div>
+                    </div>
+                </div>
+
+                <!-- West Road -->
+                <div class="road road-west" id="road-West">
+                    <div class="road-label">WEST</div>
+
+                    <div class="signal" id="signal-West">
+                        <span class="light red active"></span>
+                        <span class="light yellow"></span>
+                        <span class="light green"></span>
+                    </div>
+
+                    <div class="lane incoming" id="West-incoming">
+                        <span class="lane-label">IN</span>
+                        <div class="vehicle-container"></div>
+                    </div>
+
+                    <div class="lane outgoing" id="West-outgoing">
+                        <span class="lane-label">OUT</span>
+                        <div class="vehicle-container"></div>
+                    </div>
+                </div>
+
+                <!-- Intersection Center -->
+                <div class="intersection-center">
+                    <span>INTERSECTION</span>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Road Information -->
+        <section class="panel road-information">
+            <h2>Road Information</h2>
+            <div id="roadDetails" class="road-details">
+                Loading road information...
+            </div>
+        </section>
+
+        <!-- Completed Vehicles -->
+        <section class="panel completed-panel">
+            <h2>Completed Vehicles</h2>
+            <div id="completedVehicles">
+                No completed vehicles yet.
+            </div>
+        </section>
+
+    </main>
+
+    <footer>
+        Traffic Flow Optimization and Adaptive Traffic Light Control System
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
