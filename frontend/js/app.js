@@ -304,7 +304,8 @@ function getVehiclePosition(roadId, direction, distance, lane) {
 
     if (roadId === "North") {
         if (direction === "Incoming") {
-            y = progress * maxY;
+            const stopY = clamp(height - 90 - 91 - vehicleHeight - 12, 0, maxY);
+            y = progress * stopY;
         } else {
             y = (1 - progress) * maxY;
         }
@@ -312,7 +313,8 @@ function getVehiclePosition(roadId, direction, distance, lane) {
 
     if (roadId === "South") {
         if (direction === "Incoming") {
-            y = (1 - progress) * maxY;
+            const stopY = clamp(100 + 91 + 12, 0, maxY);
+            y = maxY - progress * (maxY - stopY);
         } else {
             y = progress * maxY;
         }
@@ -320,7 +322,8 @@ function getVehiclePosition(roadId, direction, distance, lane) {
 
     if (roadId === "East") {
         if (direction === "Incoming") {
-            x = (1 - progress) * maxX;
+            const stopX = clamp(120 + 35 + 12, 0, maxX);
+            x = maxX - progress * (maxX - stopX);
         } else {
             x = progress * maxX;
         }
@@ -328,7 +331,8 @@ function getVehiclePosition(roadId, direction, distance, lane) {
 
     if (roadId === "West") {
         if (direction === "Incoming") {
-            x = progress * maxX;
+            const stopX = clamp(width - 120 - 35 - vehicleWidth - 12, 0, maxX);
+            x = progress * stopX;
         } else {
             x = (1 - progress) * maxX;
         }

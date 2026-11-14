@@ -11,9 +11,25 @@ namespace TrafficFlowOptimizer.Api.Services
 
         private int vehicleCounter = 0;
 
+        // Vehicle spacing settings
+        private const double VehicleGap = 16;
+        private const double StopLineBuffer = 5;
+
+        // Traffic signal settings
+        private readonly string[] signalOrder =
+        {
+            "North", "East", "South", "West"
+        };
+
+        private const int SignalGreenDurationTicks = 10;
+
+        private int currentSignalIndex = 0;
+        private int signalPhaseTick = 0;
+
         public SimulationService()
         {
             InitializeRoads();
+            ApplyTrafficSignal();
         }
 
         // Create four sides with incoming and outgoing lanes
@@ -54,6 +70,38 @@ namespace TrafficFlowOptimizer.Api.Services
             }
         }
 
+        // Apply green signal to only one direction
+        private void ApplyTrafficSignal()
+        {
+            string greenRoad = signalOrder[currentSignalIndex];
+
+            foreach (Road road in state.Roads)
+            {
+                road.IsGreen = road.Id == greenRoad;
+            }
+        }
+
+        // Automatically rotate traffic signals
+        private void UpdateTrafficSignals()
+        {
+            signalPhaseTick++;
+
+            if (signalPhaseTick >= SignalGreenDurationTicks)
+            {
+                signalPhaseTick = 0;
+
+                currentSignalIndex++;
+
+                if (currentSignalIndex >= signalOrder.Length)
+                {
+                    currentSignalIndex = 0;
+                }
+
+                ApplyTrafficSignal();
+            }
+        }
+
+        // Start simulation
         public void Start()
         {
             lock (lockObject)
@@ -62,6 +110,7 @@ namespace TrafficFlowOptimizer.Api.Services
             }
         }
 
+        // Pause simulation
         public void Pause()
         {
             lock (lockObject)
@@ -70,6 +119,7 @@ namespace TrafficFlowOptimizer.Api.Services
             }
         }
 
+        // Reset simulation
         public void Reset()
         {
             lock (lockObject)
@@ -83,16 +133,32 @@ namespace TrafficFlowOptimizer.Api.Services
 
                 vehicleCounter = 0;
 
+                currentSignalIndex = 0;
+                signalPhaseTick = 0;
+
                 foreach (Road road in state.Roads)
                 {
-                    road.IsGreen = false;
-
                     foreach (Lane lane in road.Lanes)
                     {
                         lane.Vehicles.Clear();
                     }
                 }
+
+                // North starts with green after reset
+                ApplyTrafficSignal();
             }
+        }
+
+        // Check whether an incoming lane has space
+        private bool CanAcceptIncomingVehicle(Lane lane)
+        {
+            if (lane.Vehicles.Count == 0)
+                return true;
+
+            Vehicle lastVehicle = lane.Vehicles.Last();
+
+            return lastVehicle.DistanceToStopLine <=
+                   100 - VehicleGap;
         }
 
         // Manually add a vehicle
@@ -127,6 +193,10 @@ namespace TrafficFlowOptimizer.Api.Services
                 if (!allowedTypes.Contains(vehicleType))
                     throw new ArgumentException("Invalid vehicle type.");
 
+                if (!CanAcceptIncomingVehicle(lane))
+                    throw new InvalidOperationException(
+                        "This lane is full. Wait for vehicles to move forward.");
+
                 Vehicle vehicle = CreateVehicle(
                     road.Id,
                     laneNumber,
@@ -140,7 +210,7 @@ namespace TrafficFlowOptimizer.Api.Services
             }
         }
 
-        // Create a vehicle and assign a random destination
+        // Create vehicle and assign random destination
         private Vehicle CreateVehicle(
             string roadId,
             int laneNumber,
@@ -177,7 +247,7 @@ namespace TrafficFlowOptimizer.Api.Services
             };
         }
 
-        // Change traffic signal
+        // Change traffic signal manually
         public void SetSignal(string roadId, bool isGreen)
         {
             lock (lockObject)
@@ -202,7 +272,7 @@ namespace TrafficFlowOptimizer.Api.Services
             }
         }
 
-        // Enable or disable automatic generation
+        // Enable or disable automatic vehicle generation
         public void SetAutoGeneration(bool enabled)
         {
             lock (lockObject)
@@ -221,6 +291,9 @@ namespace TrafficFlowOptimizer.Api.Services
 
                 state.TickCount++;
 
+                // Update traffic signal cycle
+                UpdateTrafficSignals();
+
                 if (state.AutoGeneration &&
                     random.NextDouble() < 0.5)
                 {
@@ -236,7 +309,7 @@ namespace TrafficFlowOptimizer.Api.Services
                     MoveOutgoingVehicles(outgoingLane);
                 }
 
-                // Then process incoming vehicles
+                // Process incoming vehicles
                 foreach (Road road in state.Roads)
                 {
                     Lane incomingLane = road.Lanes.First(
@@ -255,6 +328,9 @@ namespace TrafficFlowOptimizer.Api.Services
 
             Lane lane = road.Lanes.First(
                 l => l.Direction == "Incoming");
+
+            if (!CanAcceptIncomingVehicle(lane))
+                return;
 
             string[] types =
             {
@@ -291,25 +367,27 @@ namespace TrafficFlowOptimizer.Api.Services
 
                 if (previousPosition < 0)
                 {
-                    // Vehicle can cross only on green
                     if (road.IsGreen && newPosition <= 0)
                     {
-                        TransferVehicle(vehicle);
-                        continue;
-                    }
+                        if (TransferVehicle(vehicle))
+                        {
+                            continue;
+                        }
 
-                    // Stop at red signal
-                    if (!road.IsGreen)
+                        newPosition = StopLineBuffer;
+                    }
+                    else if (!road.IsGreen)
                     {
-                        newPosition = Math.Max(5, newPosition);
+                        newPosition = Math.Max(
+                            StopLineBuffer,
+                            newPosition);
                     }
                 }
                 else
                 {
-                    // Maintain distance between vehicles
                     newPosition = Math.Max(
                         newPosition,
-                        previousPosition + 8);
+                        previousPosition + VehicleGap);
                 }
 
                 vehicle.DistanceToStopLine = newPosition;
@@ -330,8 +408,8 @@ namespace TrafficFlowOptimizer.Api.Services
             }
         }
 
-        // Transfer a vehicle to its destination outgoing lane
-        private void TransferVehicle(Vehicle vehicle)
+        // Transfer vehicle to destination outgoing lane
+        private bool TransferVehicle(Vehicle vehicle)
         {
             Road? destinationRoad = state.Roads.FirstOrDefault(
                 r => r.Id == vehicle.DestinationRoadId);
@@ -339,13 +417,23 @@ namespace TrafficFlowOptimizer.Api.Services
             if (destinationRoad == null)
             {
                 vehicle.Status = "Completed";
+
                 state.CompletedVehicles.Add(vehicle);
                 state.TotalCompleted++;
-                return;
+
+                return true;
             }
 
             Lane outgoingLane = destinationRoad.Lanes.First(
                 l => l.Direction == "Outgoing");
+
+            if (outgoingLane.Vehicles.Count > 0)
+            {
+                Vehicle lastVehicle = outgoingLane.Vehicles.Last();
+
+                if (lastVehicle.DistanceToStopLine < VehicleGap)
+                    return false;
+            }
 
             vehicle.RoadId = destinationRoad.Id;
             vehicle.LaneNumber = outgoingLane.LaneNumber;
@@ -355,33 +443,56 @@ namespace TrafficFlowOptimizer.Api.Services
             vehicle.Status = "Moving";
 
             outgoingLane.Vehicles.Enqueue(vehicle);
+
+            return true;
         }
 
         // Move outgoing vehicles away from the intersection
         private void MoveOutgoingVehicles(Lane lane)
         {
-            int count = lane.Vehicles.Count;
+            List<Vehicle> vehicles = lane.Vehicles.ToList();
 
-            for (int i = 0; i < count; i++)
+            lane.Vehicles.Clear();
+
+            double previousPosition = double.PositiveInfinity;
+
+            foreach (Vehicle vehicle in vehicles)
             {
-                Vehicle vehicle = lane.Vehicles.Dequeue();
+                double oldPosition = vehicle.DistanceToStopLine;
 
-                vehicle.DistanceToStopLine += vehicle.Speed;
+                double newPosition = oldPosition + vehicle.Speed;
 
-                if (vehicle.DistanceToStopLine >= 100)
+                newPosition = Math.Max(
+                    oldPosition,
+                    Math.Min(
+                        newPosition,
+                        previousPosition - VehicleGap));
+
+                vehicle.DistanceToStopLine = newPosition;
+
+                if (newPosition >= 100)
                 {
                     vehicle.Status = "Completed";
 
                     state.CompletedVehicles.Add(vehicle);
-
                     state.TotalCompleted++;
+
+                    continue;
+                }
+
+                if (newPosition == oldPosition)
+                {
+                    vehicle.Status = "Waiting";
+                    vehicle.WaitingTime++;
                 }
                 else
                 {
                     vehicle.Status = "Moving";
-
-                    lane.Vehicles.Enqueue(vehicle);
                 }
+
+                previousPosition = newPosition;
+
+                lane.Vehicles.Enqueue(vehicle);
             }
         }
     }
